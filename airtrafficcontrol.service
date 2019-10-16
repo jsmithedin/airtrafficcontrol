@@ -1,0 +1,14 @@
+[Unit]
+Description=Airtrafficcontrol
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/usr/local/airtrafficcontrol
+ExecStart=/usr/local/airtrafficcontrol/airtrafficcontrol -cfgFile /usr/local/airtrafficcontrol/config.yml 
+Restart=on-failure
+User=pi
+Group=pi
+
+[Install]
+WantedBy=multi-user.target

@@ -6,7 +6,6 @@ import (
 	"github.com/nlopes/slack"
 	"log"
 	"os"
-	"regexp"
 	"strings"
 
 	"github.com/joho/godotenv"
@@ -17,8 +16,8 @@ var configFilePath = flag.String("cfgFile", "./config.yml", "Path to deploy conf
 func main() {
 	flag.Parse()
 
-	var deployConfig DeployConfig
-	deployConfig.loadConfig(*configFilePath)
+	var dCfg deployConfig
+	dCfg.loadConfig(*configFilePath)
 
 	err := godotenv.Load()
 	if err != nil {
@@ -39,22 +38,19 @@ func main() {
 		switch ev := msg.Data.(type) {
 
 		case *slack.MessageEvent:
-			log.Printf("Message: %v\n", ev)
+			if len(ev.Attachments) > 0 {
+				text := ev.Attachments[0].Text
+				log.Printf("Message: %v\n", text)
 
-			info := rtm.GetInfo()
+				matched := strings.Contains(text, "jsmithedin/overmyhouse@master by Jamie Smith passed")
 
-			text := ev.Text
-			text = strings.TrimSpace(text)
-			text = strings.ToLower(text)
-
-			matched, _ := regexp.MatchString("deploy", text)
-
-			if ev.User != info.User.ID && matched {
-				err := runDeploy(&deployConfig)
-				if err != nil {
-					rtm.SendMessage(rtm.NewOutgoingMessage(fmt.Sprintf("Deployment failed: %s", err), ev.Channel))
-				} else {
-					rtm.SendMessage(rtm.NewOutgoingMessage("Successfully deployed!", ev.Channel))
+				if matched {
+					err := runDeploy(&dCfg)
+					if err != nil {
+						rtm.SendMessage(rtm.NewOutgoingMessage(fmt.Sprintf("Deployment failed: %s", err), ev.Channel))
+					} else {
+						rtm.SendMessage(rtm.NewOutgoingMessage("Successfully deployed!", ev.Channel))
+					}
 				}
 			}
 

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
@@ -10,45 +11,48 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-type DeployConfig struct {
-	repositoryURL string
-	buildCMD      string
-	installCMD    string
+type deployConfig struct {
+	RepositoryURL string `yaml:"url"`
+	BuildCMD      string `yaml:"build"`
+	InstallCMD    string `yaml:"install"`
 }
 
-func (c *DeployConfig) loadConfig(path string) *DeployConfig {
+func (c *deployConfig) loadConfig(path string) *deployConfig {
 	yamlFile, err := ioutil.ReadFile(path)
 	if err != nil {
-		log.Print(err)
+		log.Fatal(err)
 	}
 
-	err = yaml.Unmarshal(yamlFile, c)
+	err = yaml.UnmarshalStrict(yamlFile, c)
 	if err != nil {
-		log.Print(err)
+		log.Fatal(err)
 	}
 
 	return c
 }
 
-func runDeploy(deployConfig *DeployConfig) error {
+func runDeploy(dCfg *deployConfig) error {
+	log.Println("Starting deploy")
+
 	// Create temp dir
-	workingDir := os.TempDir()
+	workingDir, _ := ioutil.TempDir("/tmp", "airtrafficcontrol")
 	defer os.RemoveAll(workingDir)
+	log.Println(fmt.Sprintf("Created %s", workingDir))
 
 	// Check out repo
-	err := cloneRepo(deployConfig.repositoryURL, workingDir)
+	err := cloneRepo(dCfg.RepositoryURL, workingDir)
 	if err != nil {
 		return err
 	}
 
 	// Build
-	err = runCMD(deployConfig.buildCMD, workingDir)
+	err = runCMD(dCfg.BuildCMD, workingDir)
 	if err != nil {
 		return err
 	}
 
 	// Install
-	err = runCMD(deployConfig.installCMD, workingDir)
+	err = runCMD(dCfg.InstallCMD, workingDir)
 	if err != nil {
 		return err
 	}
@@ -57,23 +61,30 @@ func runDeploy(deployConfig *DeployConfig) error {
 }
 
 func runCMD(cmd string, dir string) error {
+	log.Println(cmd)
 	_ = os.Chdir(dir)
-	run := exec.Command(cmd)
-	_, err := run.Output()
+	run := exec.Command("bash", "-c", cmd)
+	out, err := run.CombinedOutput()
 	if err != nil {
+		log.Printf("%s\n", string(out))
+		log.Println(err)
 		return err
 	}
+
+	log.Println(string(out))
 
 	return nil
 }
 
 func cloneRepo(url string, targetDirectory string) error {
+	log.Println("Cloning repo")
 	_, err := git.PlainClone(targetDirectory, false, &git.CloneOptions{
 		URL:      url,
 		Progress: os.Stdout,
 	})
 
 	if err != nil {
+		log.Println(err)
 		return err
 	}
 

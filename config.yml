@@ -1,0 +1,3 @@
+url: https://github.com/jsmithedin/overmyhouse.git
+build: make build
+install: make install
